@@ -1,0 +1,43 @@
+name: Build iOS Dumper
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Extract Source Zip
+        run: |
+          unzip AutoDumperSdk.zip
+          
+      - name: Setup Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          echo "$HOME/theos/bin" >> $GITHUB_PATH
+          brew install ldid xz dpkg
+
+      - name: Build Tweak
+        run: |
+          # Makefile wale folder mein jaakar build karega
+          DIR=$(find . -name Makefile -exec dirname {} \; | head -n 1)
+          if [ -n "$DIR" ]; then
+            cd "$DIR"
+            make clean || true
+            make package FINALPACKAGE=1
+          else
+            echo "Error: Makefile not found in zip!"
+            exit 1
+          fi
+
+      - name: Upload Finished File
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dumper-Build
+          path: |
+            **/packages/*.deb
+            **/.theos/obj/*.dylib
+            **/.theos/obj/debug/*.dylib
